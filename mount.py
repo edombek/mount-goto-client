@@ -20,31 +20,6 @@ class IndiClient(PyIndi.BaseClient):
         super(IndiClient, self).__init__()
         self.isconnected = False
 
-    def newDevice(self, d):
-        pass
-
-    def newProperty(self, p):
-        pass
-
-    def removeProperty(self, p):
-        pass
-
-    def newBLOB(self, bp):
-        pass
-
-    def newSwitch(self, svp):
-        pass
-
-    def newNumber(self, nvp):
-        # print("New value for number "+ nvp.name)
-        pass
-
-    def newText(self, tvp):
-        pass
-
-    def newLight(self, lvp):
-        pass
-
     def newMessage(self, d, m):
         print("Message for " + d.getDeviceName() + ":" + d.messageQueue(m))
 
@@ -88,7 +63,7 @@ class Mount():
                 p = pr.getNumber()
             else:
                 p = self.device.getNumber(prop)
-            if type(p) == PyIndi.PropertyViewNumber:
+            if type(p) == PyIndi.PropertyViewNumber: #p.isValid():
                 self.numberFailures.discard(prop)
                 return p
             if prop in self.numberFailures:
@@ -108,7 +83,7 @@ class Mount():
                 p = pr.getSwitch()
             else:
                 p = self.device.getSwitch(prop)
-            if type(p) == PyIndi.PropertyViewSwitch:
+            if type(p) == PyIndi.PropertyViewSwitch: #p.isValid():
                 self.switchFailures.discard(prop)
                 return p
             if prop in self.switchFailures:
@@ -128,7 +103,7 @@ class Mount():
                 p = pr.getText()
             else:
                 p = self.device.getText(prop)
-            if type(p) == PyIndi.PropertyViewText:
+            if type(p) == PyIndi.PropertyViewText: #p.isValid():
                 self.textFailures.discard(prop)
                 return p
             if prop in self.textFailures:
@@ -164,7 +139,7 @@ class Mount():
                 if device_sim:
                     device_sim[0].setState(PyIndi.ISS_ON)  # the "ENABLE" switch
                     device_sim[1].setState(PyIndi.ISS_OFF)  # the "DISABLE" switch
-                    self.indiclient.sendNewSwitch(device_sim)
+                    self.indiclient.sendNewProperty(device_sim)
                 else:
                     print('Simulation not work, exiting')
                     sys.exit(1)
@@ -178,7 +153,7 @@ class Mount():
         if not (device.isConnected()):
             device_connect[0].setState(PyIndi.ISS_ON)  # the "CONNECT" switch
             device_connect[1].setState(PyIndi.ISS_OFF)  # the "DISCONNECT" switch
-            self.indiclient.sendNewSwitch(device_connect)
+            self.indiclient.sendNewProperty(device_connect)
         while not (device.isConnected()):
             time.sleep(0.2)
         print("Device " + self.device_name + " connected")
@@ -187,16 +162,16 @@ class Mount():
         self.location = location
         if not utc_time: utc_time = datetime.datetime.now(datetime.timezone.utc)
         p = self.getTextWithRetry("TIME_UTC")
-        p[0].text = utc_time.isoformat()
-        p[1].text = str(int(utc_time.astimezone().utcoffset().total_seconds()//2600))
-        self.indiclient.sendNewText(p)
+        p[0].setText(utc_time.isoformat())
+        p[1].setText(str(int(utc_time.astimezone().utcoffset().total_seconds()//2600)))
+        self.indiclient.sendNewProperty(p)
         
         p = self.getNumberWithRetry("GEOGRAPHIC_COORD")
-        p[0].value = location.lat.to(u.deg).value
-        p[1].value = location.lon.to(u.deg).value
-        try: p[2].value = location.height.to(u.m).value
+        p[0].setValue(location.lat.to(u.deg).value)
+        p[1].setValue(location.lon.to(u.deg).value)
+        try: p[2].setValue(location.height.to(u.m).value)
         except: pass
-        self.indiclient.sendNewNumber(p)
+        self.indiclient.sendNewProperty(p)
     
     def setTracking(self, guide):
         p = self.getSwitchWithRetry("TELESCOPE_TRACK_STATE")
@@ -206,7 +181,7 @@ class Mount():
         else:
             p[0].setState(PyIndi.ISS_OFF)
             p[1].setState(PyIndi.ISS_ON)
-        self.indiclient.sendNewSwitch(p)
+        self.indiclient.sendNewProperty(p)
     
     def goto(self, target, Jnow = True, wait = False):
         obs_time = Time.now()
@@ -222,14 +197,14 @@ class Mount():
             par = 'EQUATORIAL_COORD'
         
         p = self.getNumberWithRetry(par)
-        p[0].value = target.ra.to(u.hourangle).value
-        p[1].value = target.dec.to(u.deg).value
+        p[0].setValue(target.ra.to(u.hourangle).value)
+        p[1].setValue(target.dec.to(u.deg).value)
         pcs = self.getSwitchWithRetry("ON_COORD_SET")
         pcs[0].setState(PyIndi.ISS_ON)
         pcs[1].setState(PyIndi.ISS_OFF)
         pcs[2].setState(PyIndi.ISS_OFF)
-        self.indiclient.sendNewSwitch(pcs)
-        self.indiclient.sendNewNumber(p)
+        self.indiclient.sendNewProperty(pcs)
+        self.indiclient.sendNewProperty(p)
         if wait:
             print('Slewing')
             while p.getState() == PyIndi.IPS_BUSY:
@@ -241,8 +216,8 @@ class Mount():
         if 'HORIZONTAL_COORD' in self.numberFailures:
             t = self.getJnow()
             return t.transform_to(coord.AltAz(obstime=Time.now(), location=self.location))
-        return coord.AltAz(alt=p[0].value*u.deg, az=p[1].value*u.deg)
+        return coord.AltAz(alt=p[0].getValue()*u.deg, az=p[1].getValue()*u.deg)
     
     def getJnow(self):
         p = self.getNumberWithRetry('EQUATORIAL_EOD_COORD')
-        return coord.FK5(ra=p[0].value*u.hourangle, dec=p[1].value*u.deg, equinox=Time.now())
+        return coord.FK5(ra=p[0].getValue()*u.hourangle, dec=p[1].getValue()*u.deg, equinox=Time.now())

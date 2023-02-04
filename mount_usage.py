@@ -13,18 +13,17 @@ from astropy.time import Time
 
 location = coord.EarthLocation(lat=20 * u.deg, lon=30 * u.deg, height=60.0 * u.m)
 
-m = Mount(device_name='Telescope Simulator') # indi_simulator_telescope
-#m = Mount(use_simulation=True) # indi_eqmod_telescope
+#m = Mount(device_name='Telescope Simulator') # indi_simulator_telescope
+m = Mount(use_simulation=True) # indi_eqmod_telescope
 m.connect()
 m.set_Location_And_Time(location)
 
 obs_time = Time.now()
-target = coord.get_body('mars', obs_time, location, ephemeris='jpl')
+target = coord.get_body('sun', obs_time, location, ephemeris='jpl')
 
 m.goto(target, wait = True)
+print(m.getAltAz())
 
 target = coord.AltAz(alt = 30*u.deg, az = 20*u.deg)
 m.goto(target, wait = True)
 m.setTracking(False)
-print(m.getAltAz())
-print(m.getJnow())
